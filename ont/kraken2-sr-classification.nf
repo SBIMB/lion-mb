@@ -16,7 +16,7 @@ process sr_kraken2 {
 		sample_report = "${base}_report.txt"
 	"""
 	#run Kraken2 without the --report option
-	kraken2 --db ${params.db} --memory-mapping --use-names --paired --threads 30 --output ${sample_out} ${fq[0]} ${fq[1]}
+	kraken2 --db ${params.db} --memory-mapping --use-names --paired --threads 30 --output ${base} ${fq[0]} ${fq[1]}
 
 	#optional: keep a seperate summary report if needed
 	kraken2 --db ${params.db} --memory-mapping --use-names --paired --threads 30 \
@@ -28,7 +28,7 @@ process sr_kraken2 {
 process extract_eukaryotic_reads {
 	cpus 4
 	input:
-		tuple val(base), path(kraken_out)
+		tuple val(base), path(kraken_out), path(kraken_report)
 
 	output:
 		tuple val(base), path("${base}_eukaryotic_reads.txt")
@@ -37,7 +37,7 @@ process extract_eukaryotic_reads {
 		eukaryotic_reads = "${base}_eukaryotic_reads.txt"
     """
     # Extracting reads classified as eukaryotic (using taxonomy ID 2759 for Eukaryota)
-    awk '$3 == "2759" { print $2 }' ${kraken_out} > ${eukaryotic_reads}
+    awk '$3 == "2759" { print $2 }' ${kraken_out} > ${base}_eukaryotic_reads.txt
     """
 }
 
@@ -48,12 +48,12 @@ process filter_srs {
         tuple val(base), path(fq), path(read_ids)
 
     output:
-        path("${base}_filtered.fastq")
-
+        tuple val(base), path("${base}_filtered_{1,2}.fastq")
     script:
         """
         # Filter the original FASTQ file based on the eukaryotic read IDs
-        seqtk subseq ${fq} ${read_ids} > ${base}_filtered.fastq
+        seqtk subseq ${fq[0]} ${read_ids} > ${base}_filtered_1.fastq
+	seqtk subseq ${fq[1]} ${read_ids} > ${base}_filtered_2.fastq
         """
 }
 
@@ -72,6 +72,7 @@ process MAG_alignment {
 		base = euk_reads.simpleName
 	"""
 	# Run CoverM to align eukaryotic reads to MAGs
+	# filtered_fastq has two parts for forward and reverse ${filter_fastq[0]} and ${filtered_fastq[1]}
 	coverm genome --genome-files $mag_files --reads ${filtered_fastq} --out-file ${base}_coverm_output.txt --threads 10
 	"""
 }
@@ -82,7 +83,11 @@ workflow {
 	mag_ch = Channel.fromPath(params.mags_dir+"/*.fa")
 
 	main:
-	sr_kraken2(sr_ch) | extract_eukaryotic_reads | filter_srs | MAG-alignment(mag_ch)
+	kraken_ch = sr_kraken2(sr_ch) 
+	euk_reads_ID_ch = extract_eukaryotic_reads(kraken_ch) 
+	filter_input_ch = sr_ch.concat(euk_reads_ID_ch).groupTuple()
+	euk_reads_ch = filter_srs(filter_input_ch)
+	MAG_alignment(euk_reads_ch, mag_ch)
 }
 	
 	
