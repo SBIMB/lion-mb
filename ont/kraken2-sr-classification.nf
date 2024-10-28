@@ -72,8 +72,8 @@ process MAG_alignment {
 		base = euk_reads.simpleName
 	"""
 	# Run CoverM to align eukaryotic reads to MAGs
-	# filtered_fastq has two parts for forward and reverse ${filter_fastq[0]} and ${filtered_fastq[1]}
-	coverm genome --genome-files $mag_files --reads ${filtered_fastq} --out-file ${base}_coverm_output.txt --threads 10
+	# filtered_fastq has two parts for forward and reverse ${filtered_fastq[0]} and ${filtered_fastq[1]}
+	coverm genome --genome-fasta-directory $mag_files -1 ${filtered_fastq[0]} -2 ${filtered_fastq[1]} --out-file ${base}_coverm_output.txt --threads 10
 	"""
 }
 
