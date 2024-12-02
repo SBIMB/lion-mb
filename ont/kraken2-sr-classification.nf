@@ -22,7 +22,7 @@ process sr_kraken2 {
 }
 
 process extract_eukaryotic_reads {
-    cpus 4
+    cpus 2
     input:
        tuple val(base), path(kraken_out), path(kraken_report)
     output:
@@ -30,12 +30,12 @@ process extract_eukaryotic_reads {
     script:
        eukaryotic_reads = "${base}_eukaryotic_reads.txt"
        """
-           awk '\$3 == "2759" { print \$2 }' ${kraken_out} > ${base}_eukaryotic_reads.txt
+           awk '\$3 == "(taxid 2759)" { print \$2 }' ${kraken_out} > ${base}_eukaryotic_reads.txt
        """
 }
 
 process filter_srs {
-    cpus 4
+    cpus 2
     errorStrategy 'finish'
     input:
         tuple val(base), path(read_ids), path(fq1), path(fq2)
@@ -50,36 +50,42 @@ process filter_srs {
 }
 
 process MAG_alignment {
-	cpus 10
+	cpus 2
 	memory '36GB'
 	input:
   	   tuple val(base), path(filtered_fastq), path(mag_files)
 	output:
 		path("${base}_coverm_output.txt")
+	publishDir params.coverm_output_dir
+
 	script: 
-		base = euk_reads.simpleName
 	"""
 	# Run CoverM to align eukaryotic reads to MAGs
 	# filtered_fastq has two parts for forward and reverse ${filtered_fastq[0]} and ${filtered_fastq[1]}
 	coverm genome --genome-fasta-directory $mag_files \
-                -c ${filtered_fastq[0]} -2 ${filtered_fastq[1]} \
+                -1 ${filtered_fastq[0]} -2 ${filtered_fastq[1]} \
                 -x .fa \
-                --output-file ${base}_coverm_output.txt --threads 10
+		--mapper bwa-mem2 \
+                --output-file ${base}_coverm_output.txt --threads 2
 	"""
 }
 
 workflow {
     sr_ch = Channel.fromFilePairs(params.sr+"/*{1,2}*")  {it -> it.simpleName.replaceAll("_.*","") }
-    mag_ch = Channel.fromPath(params.mags_dir+"/*.fa")\
-	    .map { it -> [it.name.replaceAll("_.*","")]}
+    mag_ch = Channel.fromPath(params.mags_dir + "/*", type: 'dir')\
+	    .map { dir -> 
+		def sample = dir.name.replaceAll("dastool_", "")
+		[sample, dir.toString()]
+		}
 
-    main:
-        sr_kraken2(sr_ch)
+  
+sr_kraken2(sr_ch)
            |  extract_eukaryotic_reads
            |  cross  (sr_ch)    // produces list of [[base, report], [base, fq1, fq2]]
            |  map { it -> it[0]+it[1][1] } //synactic sugar to look better: make list of [base, report, fq1,fq2]
            |  filter_srs
-           |  merge(mag_ch)
+           |  join(mag_ch)
+		| view()
            |  MAG_alignment
 }
 	
