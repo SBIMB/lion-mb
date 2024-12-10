@@ -129,11 +129,17 @@ def flat_list (it) {
 }
 
 workflow {
-    lr_ch = Channel.fromPath(params.bams)
+    lr_ch = Channel.fromPath(params.lr)
     sr_ch = Channel.fromFilePairs(params.sr_dir+"/*{R1,R2}*") \
 	{ it -> it.name.replaceAll("_.*","") }
     main:
-	to_fq(lr_ch) | 	(raw_plot & filter_lr_poor_quality )
+	if (params.ont_input_type == "bam") {
+    	   ont_ch  = to_fq(lr_ch)
+        } else {
+  	  ont_ch = lr_ch
+        }
+        raw_plot(ont_ch)
+        filter_lr_poor_quality(ont_ch)
         filter_lr_poor_quality.out.seqs | qc_plot | toList | qc_summary
         // combined long and short reads on base name using "join"
         //  -- probably need to put SRs through QC
