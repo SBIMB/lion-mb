@@ -7,7 +7,7 @@ import re
 import sys
 
 def get_id(d):
-    m=re.search(r">(\w+)",d)
+    m=re.search(r">(.*?) ",d)
     if m:
        return m.group(1)
     else:

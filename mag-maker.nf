@@ -1,5 +1,5 @@
 
-
+include { short_read_polish } from  "./modules/polish.nf"
 
 
 process versions {
@@ -75,7 +75,7 @@ process unicycler_hybrid {
     input:
 	tuple val(base), path(lr), path(sr1), path(sr2)
     output:
-        path("$base/*")
+        tuple val(base), path("$base/*")
     publishDir "${params.mags_dir}/unicyler"
     script:
 	 """
@@ -100,7 +100,8 @@ process kraken_raw {
       report="${base}-kraken.txt"
       """
         hostname
-	kraken2 --confidence 0.4 --db ${params.kraken_db} --threads 16 contigs.fasta --output ${kraken} --report ${report} --use-names
+        if [ ! -f contigs.fasta ]; then ln -s assembly.fasta contigs.fasta; fi
+	kraken2  --db ${params.kraken_db} --threads 16 contigs.fasta --output ${kraken} --report ${report} --use-names
       """
 
 }
@@ -138,16 +139,16 @@ process checkv {
    input:
 	tuple val(base), path(mags)
    output:
-        path("${base}-virus.fa")
+        tuple val(base), path("${base}-virus-checked.fa")
    errorStrategy 'finish'
    """
      export PATH=${params.diamond_path}:\$PATH
      checkv end_to_end -t 10 $mags quality
      if [ -e quality/quality_summary.tsv ]; then 
        extract_qual_virus.py quality/quality_summary.tsv
-       seqkit grep -f quality_viruses.txt $mags -o ${base}-virus.fa
+       seqkit grep -f quality_viruses.txt $mags -o ${base}-virus-checked.fa
      else
-       touch ${base}-virus.fa
+       touch ${base}-virus-checked.fa
      fi
    """
 
@@ -159,7 +160,7 @@ process checkm2 {
    input:
 	tuple val(base), path(mags)
    output:
-        path("${base}-bact.fa")
+        tuple val(base), path("${base}-bact.fa")
    errorStrategy 'finish'
    script:
       report = "${base}.txt"
@@ -178,6 +179,18 @@ process checkm2 {
       seqkit grep -f seq_ids $mags -o ${base}-bact.fa
       """
 }
+
+process combine_fa {
+   input:
+     tuple val(base), path(f)
+   output:
+     tuple val(base), path(all)
+   script:
+     all="${base}.fa"
+     """
+     cat $f > $all
+     """
+}
       
 workflow split_kingdoms {
     take: samples
@@ -185,11 +198,27 @@ workflow split_kingdoms {
        kraken_raw(samples)  | clean_kraken
        checkm2(clean_kraken.out.prokaryote)
        checkv(clean_kraken.out.virus)
+       results=combine_fa(checkv.out.mix(checkm2.out).groupTuple())
+    emit:
+       all_contigs = results
 }
 
 
 
-
+process dreplicate {
+   cpus 16
+   input:
+     path(f)
+   output:
+    path("derep_dir/*")
+   script:
+   """
+   export PYTHONPATH=/opt/exp_soft/bioinf/drep
+   mkdir derep_dir
+   dRep dereplicate derep_dir -g *fa -p 16
+   """
+}
+   
 workflow {
     lr_ch = Channel.fromPath(params.lr_qc).map { it -> [it.simpleName, it]}
     sr_ch = Channel.fromFilePairs(params.sr_qc)	{  it.name.replaceAll("_.*","") }
@@ -198,5 +227,11 @@ workflow {
          .map { [it[0], it[1], it[2][0], it[2][1]] } // flatten list \
          |(unicycler_hybrid & opera_ms_hybrid)
     flye_assemble(lr_ch)
-    split_kingdoms (opera_ms_hybrid.out)
+    all_contigs = split_kingdoms (unicycler_hybrid.out)
+    short_read_polish(all_contigs.all_contigs,sr_ch)  \
+       | map { it -> it[1] }\
+       | toList \
+       | dreplicate \
+       | view
+
 }
