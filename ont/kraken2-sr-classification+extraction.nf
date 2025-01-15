@@ -33,7 +33,7 @@ process extract_eukaryotic_reads {
 		eukaryotic_reads = "${base}_eukaryotic_reads.txt"
     """
     # Extracting reads classified as eukaryotic (using taxonomy ID 2759 for Eukaryota)
-    extract_kraken_reads.py -k ${kraken_out} -s1 ${fq_forward} -s2 ${fq_reverse} \
+    extract_kraken_reads.py -k ${kraken_out} -r ${kraken_report} -s1 ${fq_forward} -s2 ${fq_reverse} \
     -o ${base}_euk_reads1.fq \
     -o2 ${base}_euk_reads2.fq \
     -t 2759 \
