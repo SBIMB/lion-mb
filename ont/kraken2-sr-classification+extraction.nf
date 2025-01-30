@@ -25,7 +25,7 @@ process extract_eukaryotic_reads {
 		tuple val(base), path(kraken_out), path(kraken_report), path(fq_forward), path(fq_reverse)
 
 	output:
-		tuple val(base), path("${base}_eukaryotic_reads.txt")
+		tuple val(base), path("${base}_euk_reads1.fq"), path("${base}_euk_reads2.fq")
 
 	publishDir params.eukaryotic_reads_output_dir
 	
