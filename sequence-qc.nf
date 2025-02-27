@@ -16,7 +16,7 @@ process filter_lr_poor_quality {
     publishDir "${params.qc_dir}/lr-reads/"
     script:
        base=fq.simpleName
-       qc_cmd = "fastplong -i ${fq} -o ${base}.qc.fq.gz --length_required ${params.min_lr_len} --qualified_quality_phred ${params.min_lr_qual} --json ${base}.qc.json --html ${base}.qc.html"
+       qc_cmd = "fastplong -i ${fq} -o ${base}.qc.fq.gz --length_required ${params.min_lr_len} --qualified_quality_phred ${params.min_lr_qual} --json ${base}.qc.json --html ${base}.qc.html --disable_adapter_trimming"
        """
         #!/bin/bash
         set -euxo pipefail 
