@@ -16,14 +16,14 @@ process filter_lr_poor_quality {
     publishDir "${params.qc_dir}/lr-reads/"
     script:
        base=fq.simpleName
-       qc_cmd = "chopper -l ${params.min_lr_len} -t 2 -q ${params.min_lr_qual} -i "
+       qc_cmd = "fastplong -i ${fq} -o ${base}.qc.fq.gz --length_required ${params.min_lr_len} --qualified_quality_phred ${params.min_lr_qual} --json ${base}.qc.json --html ${base}.qc.html"
        """
         #!/bin/bash
         set -euxo pipefail 
         hostname
-        $qc_cmd  $fq | bgzip > ${base}.qc.fq.gz
+        $qc_cmd 
         echo $qc_cmd > lr_qc.txt
-        chopper --version >> lr_qc.txt
+        fastplong --version >> lr_qc.txt
        """
 }
 
