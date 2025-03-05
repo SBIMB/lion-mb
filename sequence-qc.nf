@@ -7,12 +7,12 @@ include {qc_summary; nano_qc_plot as qc_plot } from "./modules/nano-qc.nf" \
 
 process filter_lr_poor_quality {
     maxForks 6
-    cpus 4
+    cpus 2
     input:
        path(fq)
     output:
       path("${base}.qc.fq.gz"), emit: seqs
-      path("lr_qc.txt"), topic: 'pipeline'
+      path("lr_qc.txt")
     publishDir "${params.qc_dir}/lr-reads/"
     script:
        base=fq.simpleName
@@ -33,7 +33,7 @@ process sr_qc {
 	tuple val(base), path(fq)
     output:
 	tuple val(base), path("*.qc.*")
-        path("fastp.txt"), topic ('pipeline')
+        path("fastp.txt")
     script:
         fastp_cmd = "fastp  --average_qual ${params.sr_qual} "
 	"""
@@ -60,4 +60,4 @@ workflow {
         filter_lr_poor_quality.out.seqs | qc_plot | toList | qc_summary
 
 
-}x
+}

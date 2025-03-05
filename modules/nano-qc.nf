@@ -7,7 +7,7 @@ process nano_qc_plot {
     input:
 	path(fq)
     output:
-        path(qcdir), topic: 'report'	
+        path(qcdir)
 	if (params.qc_dir) {
 	   publishDir params.qc_dir
         }
