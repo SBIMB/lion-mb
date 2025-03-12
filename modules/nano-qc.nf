@@ -1,21 +1,17 @@
 
-params.qc_dir=false
-
-println "Dir is ${params.qc_dir}"
 
 process nano_qc_plot {
     input:
 	path(fq)
     output:
         path(qcdir)
-	if (params.qc_dir) {
-	   publishDir params.qc_dir
-        }
+	publishDir params.qc_dir, enabled: params.qc_dir != ""
     script:
         base=fq.simpleName
 	qcdir="${base}-qc"
+	status=params.status
         """
-        NanoPlot --fastq $fq --outdir $qcdir -p ${base}-${params.status} 
+        NanoPlot --fastq $fq --outdir $qcdir -p ${base}-${status} 
         """
 }
 
@@ -24,9 +20,6 @@ process qc_summary {
 	path f
     output:
 	path "lr_qc.tex"
-	if (params.qc_dir) {
-	   publishDir params.qc_dir
-        }
     script:
 	"""
         summarise_qc.py */*NanoStats.txt

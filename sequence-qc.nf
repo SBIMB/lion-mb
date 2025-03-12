@@ -1,9 +1,9 @@
 
+nextflow.enable.moduleBinaries = true
 
-include {nano_qc_plot as raw_plot } from "./modules/nano-qc.nf" \
-    addParams(qc_dir: "${params.qc_dir}/raw",status:"raw")
+include {nano_qc_plot as raw_plot } from "./modules/nano-qc.nf" addParams(qc_dir: "${params.qc_dir}/raw",status:"raw")
 include {qc_summary; nano_qc_plot as qc_plot } from "./modules/nano-qc.nf" \
-    addParams(qc_dir: "${params.qc_dir}/filtered",status:"filtered")
+                                    addParams(qc_dir: "${params.qc_dir}/filtered",status:"filtered")
 
 process filter_lr_poor_quality {
     maxForks 6
@@ -53,11 +53,12 @@ workflow {
 	if (params.ont_input_type == "bam") {
     	   ont_ch  = to_fq(lr_ch)
         } else {
-  	  ont_ch = lr_ch
+  	   ont_ch = lr_ch
         }
         raw_plot(lr_ch)
         filter_lr_poor_quality(ont_ch)
-        filter_lr_poor_quality.out.seqs | qc_plot | toList | qc_summary
+        filtered_lr = filter_lr_poor_quality.out.seqs
+	qc_plot(filtered_lr)  | toList | qc_summary
 
 
 }
