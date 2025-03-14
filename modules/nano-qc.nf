@@ -1,17 +1,20 @@
 
 
+
 process nano_qc_plot {
     input:
+        val(keywords)
 	path(fq)
     output:
-        path(qcdir)
-	publishDir params.qc_dir, enabled: params.qc_dir != ""
+        path(qc_out)
+    publishDir "output", saveAs: { qc_dir == "" ? null : "$qc_dir/$tag/$it" }
     script:
-        base=fq.simpleName
-	qcdir="${base}-qc"
-	status=params.status
+        base   =  fq.simpleName
+	qc_out =  "${base}-qc"
+	tag    =  keywords['tag']
+	qc_dir =  keywords['qc_dir']
         """
-        NanoPlot --fastq $fq --outdir $qcdir -p ${base}-${status} 
+        NanoPlot --fastq $fq --outdir ${qc_out} -p ${base}-${tag} 
         """
 }
 
