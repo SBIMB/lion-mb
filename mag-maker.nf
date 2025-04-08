@@ -227,7 +227,7 @@ workflow {
          .map { [it[0], it[1], it[2][0], it[2][1]] } // flatten list \
          |(unicycler_hybrid & opera_ms_hybrid)
     flye_assemble(lr_ch)
-    all_contigs = split_kingdoms (unicycler_hybrid.out)
+    all_contigs = split_kingdoms (opera_ms.out)
     short_read_polish(all_contigs.all_contigs,sr_ch)  \
        | map { it -> it[1] }\
        | toList \
